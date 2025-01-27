@@ -27,9 +27,9 @@ one of the successes from a Specialty 10. (Note: "Bonus" Successes from 10's wil
 ### /roll
 The basic command requires the Parameters Pool: and Difficulty: 
 
-Pool can be any number. 
+Pool can be any number, and represents the number of dice to roll. If you are making a Strength + Melee roll, with 4 Strength and 3 Melee, your Pool would be 4+3=7.
 
-Difficulty can be any number between 3 and 10. 
+Difficulty can be any number between 3 and 10. This is the target number each die must meet or beat to be considered a success.
 
 ### Additional Parameters
 
