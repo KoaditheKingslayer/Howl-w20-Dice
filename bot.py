@@ -63,27 +63,33 @@ async def roll(interaction: discord.Interaction,
             formatted_rolls.append(f"~~{roll}~~")  # Strike out 1's
         elif roll >= difficulty:
             if roll == 10:
-                if strikeouts > 0:
-                    # Strikeout for the first part of 10
-                    formatted_rolls.append(f"~~**{roll}**~~")
-                    strikeouts -= 1
-                    # Bonus 10 with Strikeout or normal based on remaining Strikeouts
+                if specialty:
                     if strikeouts > 0:
-                        formatted_rolls.append(f"[~~**{roll}**~~]")
+                        formatted_rolls.append(f"~~**{roll}**~~")
+                        strikeouts -= 1
+                        # Bonus 10 with Strikeout or normal based on remaining Strikeouts
+                        if strikeouts > 0:
+                            formatted_rolls.append(f"[~~**{roll}**~~]")
+                            strikeouts -= 1
+                        else:
+                            formatted_rolls.append(f"[**{roll}**]")  # Bonus 10 without Strikeout
+                    else:
+                        formatted_rolls.append(f"**{roll}**")
+                        formatted_rolls.append(f"[**{roll}**]")
+                else:
+                    if strikeouts > 0:
+                        formatted_rolls.append(f"~~**{roll}**~~")
                         strikeouts -= 1
                     else:
-                        formatted_rolls.append(f"[**{roll}**]")  # Bonus 10 without Strikeout
-                else:
-                    formatted_rolls.append(f"**{roll}**")  # Display a single 10 normally
-                    formatted_rolls.append(f"[**{roll}**]")  # Display bonus 10
+                        formatted_rolls.append(f"**{roll}**")  # Only one 10 if not specialty
             else:
                 if strikeouts > 0:
-                    formatted_rolls.append(f"~~{roll}~~")  # Strikeout for success
+                    formatted_rolls.append(f"~~{roll}~~")
                     strikeouts -= 1
                 else:
-                    formatted_rolls.append(f"{roll}")  # Regular success
+                    formatted_rolls.append(f"{roll}")
         else:
-            formatted_rolls.append(f"*{roll}*")  # Italicize rolls below difficulty
+            formatted_rolls.append(f"*{roll}*")
 
     # Create the result message
     result_message = (
