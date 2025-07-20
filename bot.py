@@ -9,86 +9,72 @@ load_dotenv()  # Load environment variables from .env file
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")  # Get the token from the .env file
 
-# Bot setup
+DICE_EMOJIS = {
+    1: ":one:",
+    2: ":two:",
+    3: ":three:",
+    4: ":four:",
+    5: ":five:",
+    6: ":six:",
+    7: ":seven:",
+    8: ":eight:",
+    9: ":nine:",
+    10: ":keycap_ten:",
+}
+
 intents = discord.Intents.default()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Mapping from die result to Discord keycap emoji
-DICE_EMOJI = {
-    1: "1️⃣",
-    2: "2️⃣",
-    3: "3️⃣",
-    4: "4️⃣",
-    5: "5️⃣",
-    6: "6️⃣",
-    7: "7️⃣",
-    8: "8️⃣",
-    9: "9️⃣",
-    10: "🔟"
-}
-
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
+    synced = await bot.tree.sync()
+    print(f"Synced {len(synced)} commands: {[cmd.name for cmd in synced]}")
     print(f"We have logged in as {bot.user}")
 
 @bot.tree.command(name="roll", description="Rolls dice for Werewolf 20th Anniversary Edition")
-async def roll(
-    interaction: discord.Interaction,
-    pool: int,
-    difficulty: int,
-    specialty: str = None,
-    character: str = None,
-    notes: str = None,
-    willpower: bool = False
-):
-    # Validate difficulty input range
+async def roll(interaction: discord.Interaction,
+               pool: int,
+               difficulty: int,
+               specialty: str = None,
+               character: str = None,
+               notes: str = None,
+               willpower: bool = False):
     if difficulty < 3 or difficulty > 10:
         await interaction.response.send_message("Difficulty must be between 3 and 10.", ephemeral=True)
         return
 
-    # Roll dice pool
     rolls = [random.randint(1, 10) for _ in range(pool)]
-    rolls_sorted = sorted(rolls, reverse=True)  # Sort descending for better readability
+    rolls_sorted = sorted(rolls, reverse=True)
 
     successes = 0
-    ones = 0
     formatted_rolls = []
+    ones = 0
 
-    # Count successes and format dice output
     for r in rolls_sorted:
+        emoji = DICE_EMOJIS[r]
         if r == 1:
             ones += 1
-            # Failures are wrapped in curly braces
-            formatted_rolls.append(f"{{{DICE_EMOJI[r]}}}")
+            formatted_rolls.append(f"{{{emoji}}}")
         elif r == 10:
-            # Specialty 10s count double successes, but display same as other successes
             if specialty:
                 successes += 2
             else:
                 successes += 1
-            # Success dice wrapped in square brackets
-            formatted_rolls.append(f"[{DICE_EMOJI[r]}]")
+            formatted_rolls.append(f"[{emoji}]")
         elif r >= difficulty:
             successes += 1
-            formatted_rolls.append(f"[{DICE_EMOJI[r]}]")  # Success dice in brackets
+            formatted_rolls.append(f"[{emoji}]")
         else:
-            formatted_rolls.append(DICE_EMOJI[r])  # Neutral dice without brackets
+            formatted_rolls.append(emoji)
 
-    # Willpower adds 1 automatic success
     if willpower:
         successes += 1
+        formatted_rolls.insert(0, "[\U0001F1FC]")  # Regional Indicator Symbol Letter W in brackets
 
-    # Calculate net successes after subtracting ones (failures)
-    net_successes = max(successes - ones, 0)
-
-    # Raw successes before subtracting ones, needed for botch check
     raw_successes = successes
-
-    # Determine if the roll is a botch
+    net_successes = max(successes - ones, 0)
     botch = raw_successes == 0 and ones > 0 and not willpower
 
-    # Compose the result message
     result_message = (
         f"User: {interaction.user.name}    Character: {character or 'N/A'}\n\n"
         f"Rules: Pool {pool} | Diff {difficulty} | WP: {'Yes' if willpower else 'No'} | Specialty: {specialty or 'N/A'}\n\n"
@@ -101,8 +87,61 @@ async def roll(
     result_message += f"Outcome: {net_successes} Success{'es' if net_successes != 1 else ''}\n"
     result_message += f"Result: {'Botch' if botch else 'Success' if net_successes > 0 else 'Failure'}"
 
-    # Send the response
     await interaction.response.send_message(result_message)
 
-# Run the bot
+@bot.tree.command(name="initiative", description="Roll initiative for Werewolf 20th Anniversary Edition")
+@app_commands.describe(
+    dexterity="Dexterity (0-20)",
+    wits="Wits (0-20)",
+    sotf="Spirit of the Fray (adds +10)",
+    sotf_gnosis="Spirit of the Fray Gnosis (adds +10, requires SotF)",
+    character="Character name"
+)
+async def initiative(
+    interaction: discord.Interaction,
+    dexterity: app_commands.Range[int, 0, 20],
+    wits: app_commands.Range[int, 0, 20],
+    sotf: bool = False,
+    sotf_gnosis: bool = False,
+    character: str = None
+):
+    roll = random.randint(1, 10)
+    bonus = dexterity + wits
+
+    if sotf:
+        bonus += 10
+        if sotf_gnosis:
+            bonus += 10
+    else:
+        sotf_gnosis = False
+
+    bonus_components = ["Dex", "Wits"]
+    if sotf:
+        bonus_components.append("SotF")
+    if sotf_gnosis:
+        bonus_components.append("SotF Gnosis")
+    bonus_label = " + ".join(bonus_components)
+
+    total = roll + bonus
+
+    stat_parts = [
+        f"Dexterity: {dexterity}",
+        f"Wits: {wits}"
+    ]
+    if sotf:
+        stat_parts.append("SotF: Yes")
+    if sotf_gnosis:
+        stat_parts.append("SotF Gnosis: Yes")
+    stat_line = " | ".join(stat_parts)
+
+    message = (
+        f"User: {interaction.user.name}    Character: {character or 'N/A'}\n\n"
+        f"{stat_line}\n\n"
+        f"Roll (d10): {roll}\n"
+        f"Bonus ({bonus_label}): {bonus}\n"
+        f"**Initiative Total: {total}**"
+    )
+
+    await interaction.response.send_message(message)
+
 bot.run(DISCORD_TOKEN)
